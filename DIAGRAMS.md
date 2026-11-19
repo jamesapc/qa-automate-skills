@@ -12,8 +12,10 @@ What happens when the skill is triggered:
 
 ```mermaid
 flowchart TD
-    A[User Input] --> B{Input Type?}
-    B -->|CSV / JSON / curl / API spec| C[Phase 1: Analyze]
+    A[User Input] --> B{Input Type?<br/>several match: safer mode wins}
+    B -->|CSV / JSON / curl / API spec<br/>default| AUTO[Auto Mode<br/>see diagram 9]
+    B -->|"review" only| REVIEW[Review only<br/>no changes, no run]
+    B -->|"plan first" / shared helper change| C[Phase 1: Analyze]
     B -->|"add test for X"| D[Ask for details]
     B -->|"test is failing"| E[Debug Flow]
     B -->|"just do it"| F[Skip to Tasks]
@@ -297,6 +299,39 @@ flowchart LR
     ARCHIVE --> FAIL
     ARCHIVE --> HTML
     ARCHIVE --> TRACE
+```
+
+---
+
+## 9. Auto Mode Flow
+
+```mermaid
+flowchart TD
+    IN[Source data:<br/>CSV / JSON / curl / spec / Confluence] --> SETUP{One-time setup<br/>present?}
+    SETUP -->|No| STOP0[Propose setup once<br/>STOP for approval]
+    STOP0 -->|Approved| REV
+    SETUP -->|Yes| REV[Auto-review<br/>Phase 1 Analyze]
+    REV --> GAP{Blocking gaps?}
+    GAP -->|Yes| STOP1[Show decision log<br/>STOP for user]
+    GAP -->|No| GEN[Generate<br/>CSV → Type → Builder → Schema → Spec]
+    STOP1 -->|User answers| GEN
+    GEN --> CHK[Self-review + tsc]
+    CHK --> ENV{auto-run-precheck:<br/>non-prod allowlist +<br/>credentials + git-ignored?}
+    ENV -->|No / unclear| STOP2[STOP: report and ask]
+    ENV -->|Yes| RUN[Run new tag only<br/>--retries=0<br/>--trace=retain-on-failure]
+    RUN --> LOG[Attach masked req/res<br/>+ transaction-ref]
+    LOG --> RES{Failures?}
+    RES -->|Test bug| FIX[Fix new code<br/>max 2 rounds] --> RUN
+    RES -->|Wrong API response /<br/>environment| DEF[Record suspected defect<br/>no test change]
+    RES -->|None| REP
+    DEF --> REP[auto-run/run-id/:<br/>html report, failures.md,<br/>results.json, summary.md]
+    REP --> SUM[Final summary in chat]
+
+    style STOP0 fill:#fff3cd,stroke:#ffc107
+    style STOP1 fill:#fff3cd,stroke:#ffc107
+    style STOP2 fill:#f8d7da,stroke:#dc3545
+    style DEF fill:#f8d7da,stroke:#dc3545
+    style SUM fill:#d4edda,stroke:#28a745
 ```
 
 ---
